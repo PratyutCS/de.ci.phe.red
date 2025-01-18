@@ -1,100 +1,247 @@
 #include <stdio.h>
+
 #include <gmp.h>
-#include <time.h>
+
 #include <stdlib.h>
+
 #include <math.h>
 
-int rows(int size){
-  int count = 0;
-  for(double i = size; i>=1.0; i=ceil((i/2.0))){
-    count++;
-    if(i == 1.0)
-      break;
+#include <time.h>
+
+mpz_t * readFile(char * fileName, int * size) {
+  //printf("[READFILE] inputfileName is: %s\n", fileName);
+  FILE * inputFile = fopen(fileName, "r");
+
+  if (!inputFile) {
+    perror("Error opening file");
+    return NULL;
   }
-  return count;
-}
 
-mpz_t* readFile(char* fileName, int* size){
-  printf("[READFILE] inputfileName is:%s\n",fileName);
-  FILE* inputFile = fopen(fileName, "r");
-
-  char* line = NULL;
+  char * line = NULL;
   size_t line_length = 0;
   size_t line_count = 0;
 
-  while (getline(&line, &line_length, inputFile) != -1) {
+  while (getline( & line, & line_length, inputFile) != -1) {
     line_count++;
   }
-  printf("[READFILE] line count is : %zd\n",line_count);
-  mpz_t* array = (mpz_t*)malloc(line_count * sizeof(mpz_t));
+
+  //printf("[READFILE] line count is: %zd\n", line_count);
+  mpz_t * array = (mpz_t * ) malloc(line_count * sizeof(mpz_t));
   rewind(inputFile);
 
   for (size_t i = 0; i < line_count; i++) {
     mpz_init(array[i]);
-    if (getline(&line, &line_length, inputFile) == -1) {
+    if (getline( & line, & line_length, inputFile) == -1) {
       perror("Error reading line");
       fclose(inputFile);
       free(line);
       for (size_t j = 0; j < i; j++) {
-          mpz_clear(array[j]); // Free mpz_t resources
+        mpz_clear(array[j]);
       }
       free(array);
       return NULL;
     }
-    mpz_set_str(array[i], line, 16); // Parse the line as mpz_t
+    mpz_set_str(array[i], line, 16);
   }
 
   fclose(inputFile);
   free(line);
-  *size = line_count;
+  * size = line_count;
   return array;
 }
 
-int main(){
-  printf("[main] io works\n");
+int main() {
+  clock_t start, end;
+  double cpu_time_used;
+  start = clock();
+  //printf("[main] io works\n");
   int line_size;
-  mpz_t* fileData;
-  fileData = readFile("../input/input_sample.txt", &line_size);
-//  mpz_out_str(stdout, 16, fileData[0]);
-//  printf("\n");
-//  mpz_out_str(stdout, 16, fileData[1]);
-//  printf("\n");
-//  mpz_t mul;
-//  mpz_mul(mul, fileData[0], fileData[1]);
-//  mpz_out_str(stdout, 16, mul);
-//  printf("\n");
-  int row = rows(line_size);
-  printf("[MAIN] rows required is : %d\n",row);
-  mpz_t** array_of_arrays = (mpz_t**)malloc(row * sizeof(mpz_t*));
+  mpz_t * fileData = readFile("../input/input-100k.txt", & line_size);
 
-  for (int i = line_size, count = 0, prev = 0; i >= 1; i = ceil(i / 2.0), count++, prev = i) {
-     array_of_arrays[count] = (mpz_t*)malloc(i * sizeof(mpz_t));
-     printf("i allocated is : %d\n",i);
-     if(i == line_size){
-       array_of_arrays[0] = fileData;
-     }
-    else if(i == 1)
-       break;
-    else{
-      for (int j = 0, k = 0; j < i; j++, k += 2) {
-        if(k==prev){
-          printf("is this ever true ??");
-          mpz_set(array_of_arrays[count][j], array_of_arrays[count-1][k]);
+  if (!fileData) {
+    return 1;
+  }
+
+  int row = 0;
+  for (double i = line_size; i >= 1.0; i = ceil(i / 2.0)) {
+    row++;
+    if (i == 1.0)
+      break;
+  }
+  //printf("[MAIN] rows required is: %d\n", row);
+  
+  long long row_size[row];
+  row_size[row-1] = line_size;
+
+  mpz_t ** array_of_arrays = (mpz_t ** ) malloc(row * sizeof(mpz_t * ));
+  
+  int ls = ceil(line_size/2.0);
+
+  for (int i=ls, count=0, prev=line_size ; i>=1 ; i=ceil(i/2.0), count+=1) {
+    array_of_arrays[count] = (mpz_t * ) malloc(i * sizeof(mpz_t));
+    printf("count is : %d i allocated is: %d prev is: %d\n", count, i, prev);
+
+    for (int j = 0; j < i; j++) {
+      mpz_init(array_of_arrays[count][j]);
+    }
+
+    if (i == ls) {
+      for (int j = 0, k = 0; j < i; j += 1, k += 2) {
+        if (k == prev - 1) {
+          mpz_set(array_of_arrays[count][j], fileData[k]);
+        } else {
+          mpz_mul(array_of_arrays[count][j], fileData[k], fileData[k + 1]);
         }
-        mpz_mul(array_of_arrays[count][j], array_of_arrays[count-1][k], array_of_arrays[count-1][k+1]);
+      }
+    } else if (i == 1) {
+      mpz_mul(array_of_arrays[count][0], array_of_arrays[count - 1][0], array_of_arrays[count - 1][1]);
+    	row_size[row-2-count] = i;
+      break;
+    } else {
+      for (int j = 0, k = 0; j < i; j += 1, k += 2) {
+        if (k == prev - 1) {
+          mpz_set(array_of_arrays[count][j], array_of_arrays[count - 1][k]);
+        } else {
+          mpz_mul(array_of_arrays[count][j], array_of_arrays[count - 1][k], array_of_arrays[count - 1][k + 1]);
+        }
+      }
+    }
+    prev = i;
+    row_size[row-2-count] = i;
+  }
+  printf("[MAIN] Product Tree constructed by time: %f seconds\n", ((double) clock() - start) / CLOCKS_PER_SEC);
+  
+  mpz_t ** aoa = (mpz_t ** ) malloc(row * sizeof(mpz_t * ));
+  
+  for(int i=0 ; i<row ; i++){
+  	printf("row size for %d is : %lld\n", i, row_size[i]);
+  	aoa[i] = (mpz_t * ) malloc(row_size[i] * sizeof(mpz_t));
+  	
+  	for (int j = 0; j < row_size[i]; j++) {
+      mpz_init(aoa[i][j]);
+    }
+    
+    if(i == 0){
+    	mpz_set(aoa[i][0], array_of_arrays[row-2][0]);
+    }
+    else if(i == row-1){
+      for (int j=0, k=0; j<row_size[i-1]; j+=1, k+=2) {
+      	if(k+2 <= row_size[i]){
+		    	mpz_t sq1,sq2;
+		    	mpz_inits(sq1,sq2,NULL);
+		    	mpz_mul(sq1, fileData[k], fileData[k]);
+		    	mpz_mul(sq2, fileData[k+1], fileData[k+1]);
+		    	if (mpz_cmp_ui(sq1, 0) == 0) {
+		    		printf("ZERO VALUE IS : ");
+		    		mpz_out_str(stdout, 16, array_of_arrays[row-2-i][k]);
+		    		printf("\n");
+		    		fprintf(stderr, "Error: Division by zero detected sq1 in else\n");
+		    		exit(1);
+					}
+		    	if (mpz_cmp_ui(sq2, 0) == 0) {
+		    		printf("ZERO VALUE IS : ");
+		    		mpz_out_str(stdout, 16, array_of_arrays[row-2-i][k+1]);
+		    		printf("\n");
+		    		printf("row is: %d k is : %d\n", row-2-i, k+1);
+		    		fprintf(stderr, "Error: Division by zero detected sq2 in else\n");
+		    		exit(1);
+					}
+		    	mpz_mod(aoa[i][k], aoa[i-1][j], sq1);
+		    	mpz_mod(aoa[i][k+1], aoa[i-1][j], sq2);
+      	}
+      	else{
+		    	mpz_t sq1;
+		    	mpz_init(sq1);
+		    	mpz_mul(sq1, array_of_arrays[row-2-i][k], array_of_arrays[row-2-i][k]);
+		    	if (mpz_cmp_ui(sq1, 0) == 0) {
+		    		printf("ZERO VALUE IS : ");
+		    		mpz_out_str(stdout, 16, array_of_arrays[row-2-i][k]);
+		    		printf("\n");
+		    		fprintf(stderr, "Error: Division by zero detected sq1 \n");
+		    		exit(1);
+					}
+		    	mpz_mod(aoa[i][k], aoa[i-1][j], sq1);
+      	}
+      }
+    }
+    else{
+      for (int j=0, k=0; j<row_size[i-1]; j+=1, k+=2) {
+      	if(k+2 <= row_size[i]){
+		    	mpz_t sq1,sq2;
+		    	mpz_inits(sq1,sq2,NULL);
+		    	mpz_mul(sq1, array_of_arrays[row-2-i][k], array_of_arrays[row-2-i][k]);
+		    	mpz_mul(sq2, array_of_arrays[row-2-i][k+1], array_of_arrays[row-2-i][k+1]);
+		    	if (mpz_cmp_ui(sq1, 0) == 0) {
+		    		printf("ZERO VALUE IS : ");
+		    		mpz_out_str(stdout, 16, array_of_arrays[row-2-i][k]);
+		    		printf("\n");
+		    		fprintf(stderr, "Error: Division by zero detected sq1 \n");
+		    		exit(1);
+					}
+		    	if (mpz_cmp_ui(sq2, 0) == 0) {
+		    		printf("ZERO VALUE IS : ");
+		    		mpz_out_str(stdout, 16, array_of_arrays[row-2-i][k+1]);
+		    		printf("\n");
+		    		printf("row is: %d k is : %d\n", row-2-i, k+1);
+		    		fprintf(stderr, "Error: Division by zero detected sq2 \n");
+		    		exit(1);
+					}
+		    	mpz_mod(aoa[i][k], aoa[i-1][j], sq1);
+		    	mpz_mod(aoa[i][k+1], aoa[i-1][j], sq2);
+      	}
+      	else{
+		    	mpz_t sq1;
+		    	mpz_init(sq1);
+		    	mpz_mul(sq1, array_of_arrays[row-2-i][k], array_of_arrays[row-2-i][k]);
+		    	if (mpz_cmp_ui(sq1, 0) == 0) {
+		    		printf("ZERO VALUE IS : ");
+		    		mpz_out_str(stdout, 16, array_of_arrays[row-2-i][k]);
+		    		printf("\n");
+		    		fprintf(stderr, "Error: Division by zero detected sq1 \n");
+		    		exit(1);
+					}
+		    	mpz_mod(aoa[i][k], aoa[i-1][j], sq1);
+      	}
       }
     }
   }
-  free(array_of_arrays);
+  printf("[MAIN] Remainder Tree constructed by time: %f seconds\n", ((double) clock() - start) / CLOCKS_PER_SEC);
+  
+  int weak_key_count = 0;
+
+  mpz_t one;
+  mpz_init(one);
+  mpz_set_str(one, "1", 16);
+  
+  mpz_t rdp;
+  mpz_init(rdp);
+
+  mpz_t gcd;
+  mpz_init(gcd);
+
+  for (int i = 0; i < line_size; i++) {
+    mpz_div(rdp, aoa[row-1][i], fileData[i]);
+    mpz_gcd(gcd, rdp, fileData[i]);
+    if (mpz_cmp(gcd, one) != 0) {
+      weak_key_count += 1;
+    }
+  }
+  printf("[MAIN] %d Weak keys identified by time: %f seconds\n", weak_key_count, ((double) clock() - start) / CLOCKS_PER_SEC);\
+
+  // Cleanup
+
+  for (int i = 0; i < line_size; i++) {
+    mpz_clear(fileData[i]);
+  }
   free(fileData);
-//  int sa = line_size;
-//  for(int i=0;i<row;i++){
-//    for(int j=0;i<sa;j++){
-//      mpz_out_str(stdout, 16, array_of_arrays[i][j]);
-//      printf(" --------- ");
-//    }
-//    printf("\n");
-//    sa = ceil(sa/2.0);
-//  }
+
+  for (int i = 0, current_size = ls; i < row-1; i++, current_size = ceil(current_size / 2.0)) {
+    for (int j = 0; j < current_size; j++) {
+      mpz_clear(array_of_arrays[i][j]);
+    }
+    free(array_of_arrays[i]);
+  }
+  free(array_of_arrays);
+
   return 0;
 }
