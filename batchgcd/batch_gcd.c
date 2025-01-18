@@ -242,6 +242,16 @@ int main() {
     free(array_of_arrays[i]);
   }
   free(array_of_arrays);
+	for (int i = 0; i < row; i++) {
+		  for (int j = 0; j < row_size[i]; j++) {
+		      mpz_clear(aoa[i][j]);
+		  }
+		  free(aoa[i]);
+	}
+	free(aoa);
+	mpz_clear(one);
+	mpz_clear(rdp);
+	mpz_clear(gcd);
 
   return 0;
 }
