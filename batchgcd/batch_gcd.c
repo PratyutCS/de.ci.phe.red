@@ -137,7 +137,7 @@ int main() {
       	else{
 		    	mpz_t sq1;
 		    	mpz_init(sq1);
-		    	mpz_mul(sq1, array_of_arrays[row-2-i][k], array_of_arrays[row-2-i][k]);
+		    	mpz_mul(sq1, fileData[k], fileData[k]);
 		    	mpz_mod(aoa[i][k], aoa[i-1][j], sq1);
       	}
       }
