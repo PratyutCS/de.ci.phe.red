@@ -1,12 +1,10 @@
 #include <stdio.h>
-
 #include <gmp.h>
-
 #include <stdlib.h>
-
 #include <math.h>
-
 #include <time.h>
+#include <pthread.h>
+#define thread_num 15
 
 mpz_t * readFile(char * fileName, int * size) {
   //printf("[READFILE] inputfileName is: %s\n", fileName);
@@ -50,12 +48,28 @@ mpz_t * readFile(char * fileName, int * size) {
   return array;
 }
 
+typedef struct {
+    mpz_t *res;
+    mpz_t *op1;
+    mpz_t *op2;
+} ThreadData;
+
+
+void* multiply(void* arg) {
+    ThreadData* data = (ThreadData*)arg;
+    mpz_mul(*(data->res), *(data->op1), *(data->op2));
+    // mpz_out_str(stdout, 16, *(data->res));
+    // printf("\n");
+    return NULL;
+}
+
 // MAIN --------------------------------------------------------------------------------------------------------------------------------------------------------
 
 int main() {
   time_t start, end1, end2, end3;
   //printf("[main] io works\n");
   int line_size;
+  // CAN BE MULTI THREADED but is it beneficial ?
   mpz_t * fileData = readFile("../input/input-100k.txt", & line_size);
 
   if (!fileData) {
@@ -88,16 +102,40 @@ int main() {
         mpz_set(array_of_arrays[count][j], fileData[j]);
       }
 
-    } else if (i == 1) {
+    } 
+    else if (i == 1) {
       mpz_mul(array_of_arrays[count][0], array_of_arrays[count - 1][0], array_of_arrays[count - 1][1]);
       row_size[count] = i;
       break;
-    } else {
-      for (int j = 0, k = 0; j < i; j += 1, k += 2) {
+    } 
+    else {
+      // THIS LOOP NEEDS MULTI PROCESSING 1
+      pthread_t threads[thread_num];
+      ThreadData threadData[thread_num];
+
+      for (int j = 0, k = 0; j < i;) {
         if (k == prev - 1) {
           mpz_set(array_of_arrays[count][j], array_of_arrays[count - 1][k]);
-        } else {
-          mpz_mul(array_of_arrays[count][j], array_of_arrays[count - 1][k], array_of_arrays[count - 1][k + 1]);
+          break;
+        } 
+        else {
+          // THIS ELSE NEED A LITTLE HELP
+          int t=0;
+          for(t=0 ; t<thread_num ; t++){
+            if(j >= i || prev-1 == k){
+              break;
+            }
+            threadData[t].res = &array_of_arrays[count][j];
+            threadData[t].op1 = &array_of_arrays[count-1][k];
+            threadData[t].op2 = &array_of_arrays[count-1][k+1];
+            pthread_create(&threads[t], NULL, multiply, &threadData[t]);
+            j+=1;
+            k+=2;
+          }
+
+          for (int p = 0; p < t; p++) {
+            pthread_join(threads[p], NULL);
+          }
         }
       }
     }
@@ -107,28 +145,28 @@ int main() {
   time(&end1);
   printf("[MAIN] Product Tree constructed by time: %f seconds\n", difftime(end1, start));
 
-  // mpz_out_str(stdout, 16, array_of_arrays[row-2][0]);
+  // mpz_out_str(stdout, 16, array_of_arrays[row-1][0]);
 
   // for (int i = 0; i < row; i++) {
   //   printf("row is: %d its value is: %lld\n", i, row_size[i]);
   // }
 
-  // Initialize sq1 and sq2 once at the start
   mpz_t sq1, sq2;
   mpz_inits(sq1, sq2, NULL);
+  printf("init1 done\n");
 
   for (int i = row - 2; i >= 0; i--) {
-    // printf("row size for %d is : %lld\n", i, row_size[i]);
+    printf("row size for %d is : %lld\n", i, row_size[i]);
+
+    // THIS LOOP NEEDS MULTI PROCESSING 2
     for (int j = 0, k = 0; j < row_size[i]; j += 2, k += 1) {
       if (j + 2 <= row_size[i]) {
-        // printf("done for i: %d - j: %d - j+1: %d - k: %d\n", i, j, j+1, k);
         mpz_mul(sq1, array_of_arrays[i][j], array_of_arrays[i][j]);
         mpz_mul(sq2, array_of_arrays[i][j + 1], array_of_arrays[i][j + 1]);
 
         mpz_mod(array_of_arrays[i][j], array_of_arrays[i+1][k], sq1);
         mpz_mod(array_of_arrays[i][j + 1], array_of_arrays[i+1][k], sq2);
       } else {
-        // printf("else ran \n");
         mpz_mul(sq1, array_of_arrays[i][j], array_of_arrays[i][j]);
         mpz_mod(array_of_arrays[i][j], array_of_arrays[i+1][k], sq1);
       }
@@ -151,8 +189,9 @@ int main() {
   for (int i = 0; i < line_size; i++) {
     mpz_init(weak_keys[i]);
   }
-  // printf("init done\n");
+  printf("init2 done\n");
 
+  // THIS LOOP NEEDS MULTI PROCESSING 3
   for (int i = 0; i < line_size; i++) {
     mpz_div(res, array_of_arrays[0][i], fileData[i]);
     mpz_gcd(res, res, fileData[i]);
@@ -164,9 +203,7 @@ int main() {
   time(&end3);
   printf("[MAIN] %d Weak keys identified by time: %f seconds\n", weak_key_count, difftime(end3, start));
 
-  //(mpz_t *) realloc(weak_key_count * size_of(mpz_t)); // optional
-
-  // Cleanup
+  // Cleanup -- to think about it after wards
 
   for (int i = 0; i < line_size; i++) {
     mpz_clear(weak_keys[i]);
