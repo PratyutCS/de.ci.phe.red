@@ -104,7 +104,7 @@ void * finale(void *arg) {
     ThreadData1 *data = (ThreadData1 *) arg;
 
     int weak_key_count = 0;
-    // int *weak_keys = malloc(sizeof(int));
+    int *weak_keys = malloc(sizeof(int));
 
     printf("THREAD is: %d - starting index is: %d - ending index is: %d - diff is: %d\n", data -> thread, data -> start_idx, data -> end_idx, data -> end_idx - data -> start_idx);
 
@@ -118,9 +118,9 @@ void * finale(void *arg) {
 
     printf("THREAD is: %d - starting index is: %d - ending index is: %d - diff is: %d\n", data -> thread, data -> start_idx, data -> end_idx, data -> end_idx - data -> start_idx);
     mpz_clears(one, res, NULL);
-    // *weak_keys = weak_key_count;
+    *weak_keys = weak_key_count;
 
-    return NULL;
+    return weak_keys;
 }
 
 // MAIN --------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -277,7 +277,7 @@ int main() {
 
     int rem = line_size % thread_num;
     int load = line_size / thread_num;
-    int fin_load = 0;
+    int fin_load = load;
     int j = 0;
     int th = 0;
 
