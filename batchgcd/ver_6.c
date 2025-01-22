@@ -79,7 +79,47 @@ void * mod(void * arg) {
         mpz_mul(sq1, data -> current_row[i], data -> current_row[i]);
         mpz_mod(data -> current_row[i], data -> prev_row[i/2], sq1);
     }
+    mpz_clear(sq1);
     // printf("starting index is: %d - ending index is: %d - diff is: %d\n", data -> start_idx, data -> end_idx, data -> end_idx - data -> start_idx);
+    return NULL;
+}
+
+typedef struct {
+    mpz_t * current_row;
+    mpz_t * prev_row;
+    int start_idx;
+    int end_idx;
+    int thread;
+}
+ThreadData1;
+
+void * finale(void *arg) {
+    mpz_t one;
+    mpz_init(one);
+    mpz_set_str(one, "1", 16);
+
+    mpz_t res;
+    mpz_init(res);
+
+    ThreadData1 *data = (ThreadData1 *) arg;
+
+    int weak_key_count = 0;
+    // int *weak_keys = malloc(sizeof(int));
+
+    printf("THREAD is: %d - starting index is: %d - ending index is: %d - diff is: %d\n", data -> thread, data -> start_idx, data -> end_idx, data -> end_idx - data -> start_idx);
+
+    for (int i = data -> start_idx ; i < data -> end_idx ; i++) {
+        mpz_div(res, data -> current_row[i], data -> prev_row[i]);
+        mpz_gcd(res, res, data -> prev_row[i]);
+        if (mpz_cmp(res, one) != 0) {
+            weak_key_count += 1;
+        }
+    }
+
+    printf("THREAD is: %d - starting index is: %d - ending index is: %d - diff is: %d\n", data -> thread, data -> start_idx, data -> end_idx, data -> end_idx - data -> start_idx);
+    mpz_clears(one, res, NULL);
+    // *weak_keys = weak_key_count;
+
     return NULL;
 }
 
@@ -187,10 +227,6 @@ int main() {
     //   printf("row is: %d its value is: %lld\n", i, row_size[i]);
     // }
 
-    mpz_t sq1, sq2;
-    mpz_inits(sq1, sq2, NULL);
-    // printf("init1 done\n");
-
     for (int i = row - 2; i >= 0; i--) {
         printf("row size for %d is : %lld\n", i, row_size[i]);
 
@@ -234,38 +270,47 @@ int main() {
 
     int weak_key_count = 0;
 
-    mpz_t one;
-    mpz_init(one);
-    mpz_set_str(one, "1", 16);
-
-    mpz_t res;
-    mpz_init(res);
-
-    mpz_t * weak_keys = (mpz_t * ) malloc(line_size * sizeof(mpz_t));
-
-    for (int i = 0; i < line_size; i++) {
-        mpz_init(weak_keys[i]);
-    }
-    printf("init2 done\n");
-
     // THIS LOOP NEEDS MULTI PROCESSING 3
-    for (int i = 0; i < line_size; i++) {
-        mpz_div(res, array_of_arrays[0][i], fileData[i]);
-        mpz_gcd(res, res, fileData[i]);
-        if (mpz_cmp(res, one) != 0) {
-            mpz_set(weak_keys[weak_key_count], fileData[i]);
-            weak_key_count += 1;
+
+    pthread_t threads[thread_num];
+    ThreadData1 threadData[thread_num];
+
+    int rem = line_size % thread_num;
+    int load = line_size / thread_num;
+    int fin_load = 0;
+    int j = 0;
+    int th = 0;
+
+    for(int th = 0 ; th < thread_num ; th++){
+        if(rem > 0){
+            fin_load = load + 1;
+            rem -= 1;
         }
+        else{
+            fin_load = load;
+        }
+        threadData[th].current_row = array_of_arrays[0];
+        threadData[th].prev_row = fileData;
+        threadData[th].start_idx = j;
+        threadData[th].end_idx = j + fin_load;
+        // THREAD CREATION
+        // printf("fin_load is: %d - j is: %d - th is: %d - j+fin_load is: %d\n", fin_load, j, th, j+fin_load);
+        threadData[th].thread = th;
+        pthread_create( & threads[th], NULL, finale, & threadData[th]);
+        j += fin_load;
+    }
+
+    for (int p = 0; p < th; p++) {
+        void* return_value;
+        pthread_join(threads[p], return_value);
+        int weak_keys_from_thread = *(int *) return_value;
+        weak_key_count += weak_keys_from_thread;
+        free(return_value);
     }
     time( & end3);
     printf("[MAIN] %d Weak keys identified by time: %f seconds\n", weak_key_count, difftime(end3, start));
 
     // Cleanup -- to think about it after wards
-
-    for (int i = 0; i < line_size; i++) {
-        mpz_clear(weak_keys[i]);
-    }
-    free(weak_keys);
 
     for (int i = 0; i < line_size; i++) {
         mpz_clear(fileData[i]);
@@ -279,9 +324,6 @@ int main() {
         free(array_of_arrays[i]);
     }
     free(array_of_arrays);
-
-    // Clear the variables at the end
-    mpz_clears(sq1, sq2, one, res, NULL);
 
     return 0;
 }
