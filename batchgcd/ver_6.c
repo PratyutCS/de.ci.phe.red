@@ -120,7 +120,6 @@ int main() {
     time_t start, end1, end2, end3;
     //printf("[main] io works\n");
     int line_size;
-    // CAN BE MULTI THREADED but is it beneficial ?
     mpz_t * fileData = readFile("../input/input-100k.txt", & line_size);
 
     if (!fileData) {
