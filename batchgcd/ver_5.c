@@ -70,18 +70,16 @@ void * multiply(void * arg) {
     return NULL;
 }
 
-typedef struct {
-    mpz_t * div;
-    mpz_t * op;
-}
-rem;
-
 void * mod(void * arg) {
-    mpz_t sq1, sq2;
-    mpz_inits(sq1, sq2, NULL);
-    rem * data = (rem * ) arg;
-    mpz_mul(sq1, *(data -> op), *(data -> op));
-    mpz_mod( * (data -> op), *(data -> div), sq1);
+    // printf("Hello from thread\n");
+    mpz_t sq1;
+    mpz_init(sq1);
+    ThreadData * data = (ThreadData * ) arg;
+    for(int i = data -> start_idx; i < data -> end_idx; i++){
+        mpz_mul(sq1, data -> current_row[i], data -> current_row[i]);
+        mpz_mod(data -> current_row[i], data -> prev_row[i/2], sq1);
+    }
+    // printf("starting index is: %d - ending index is: %d - diff is: %d\n", data -> start_idx, data -> end_idx, data -> end_idx - data -> start_idx);
     return NULL;
 }
 
@@ -150,13 +148,13 @@ int main() {
             for (th = 0; th < thread_num; th++) {
                 if (rem > 0) {
                     fin_load = load + 1;
-                    if (fin_load == 0) {
-                        break;
-                    }
                     rem -= 1;
                 }
                 else{
                     fin_load = load;
+                }
+                if (fin_load == 0) {
+                    break;
                 }
                 threadData[th].current_row = array_of_arrays[count];
                 threadData[th].prev_row = array_of_arrays[count - 1];
@@ -170,12 +168,12 @@ int main() {
                 pthread_join(threads[p], NULL);
             }
 
-            for (int j = 0; j < i; j++) {
-                if (mpz_cmp_ui(array_of_arrays[count][j], 0) == 0) {
-                    printf("0 found at index: %d of count; %d\n", j, count);
-                    exit(1);
-                }
-            }
+            // for (int j = 0; j < i; j++) {
+            //     if (mpz_cmp_ui(array_of_arrays[count][j], 0) == 0) {
+            //         printf("0 found at index: %d of count; %d\n", j, count);
+            //         exit(1);
+            //     }
+            // }
         }
         prev = i;
         row_size[count] = i;
@@ -191,24 +189,67 @@ int main() {
 
     mpz_t sq1, sq2;
     mpz_inits(sq1, sq2, NULL);
-    printf("init1 done\n");
+    // printf("init1 done\n");
 
     for (int i = row - 2; i >= 0; i--) {
         printf("row size for %d is : %lld\n", i, row_size[i]);
 
-        // THIS LOOP NEEDS MULTI PROCESSING 2
-        for (int j = 0, k = 0; j < row_size[i]; j += 2, k += 1) {
-            if (j + 2 <= row_size[i]) {
-                mpz_mul(sq1, array_of_arrays[i][j], array_of_arrays[i][j]);
-                mpz_mul(sq2, array_of_arrays[i][j + 1], array_of_arrays[i][j + 1]);
 
-                mpz_mod(array_of_arrays[i][j], array_of_arrays[i + 1][k], sq1);
-                mpz_mod(array_of_arrays[i][j + 1], array_of_arrays[i + 1][k], sq2);
-            } else {
-                mpz_mul(sq1, array_of_arrays[i][j], array_of_arrays[i][j]);
-                mpz_mod(array_of_arrays[i][j], array_of_arrays[i + 1][k], sq1);
+        pthread_t threads[thread_num];
+        ThreadData threadData[thread_num];
+
+        int rem = row_size[i] % thread_num;
+        int load = row_size[i] / thread_num;
+        int fin_load = 0;
+        int j = 0;
+        int th = 0;
+        // printf("rem is : %d -  load is: %d\n", rem, load);
+
+        for(th = 0 ; th < thread_num ; th++){
+            if(rem > 0){
+                // printf("rem > 0 - rem is: %d - fin_load is: %d\n", rem, fin_load);
+                fin_load = load + 1;
+                rem -= 1;
             }
+            else{
+                fin_load = load;
+            }
+            if(fin_load == 0){
+                break;
+            }
+            threadData[th].current_row = array_of_arrays[i];
+            threadData[th].prev_row = array_of_arrays[i+1];
+            threadData[th].start_idx = j;
+            threadData[th].end_idx = j+fin_load;
+            pthread_create( & threads[th], NULL, mod, & threadData[th]);
+            j+= fin_load;
+
         }
+        for (int p = 0; p < th; p++) {
+            pthread_join(threads[p], NULL);
+        }
+
+        // for (int j = 0; j < row_size[i]; j++) {
+        //     if (mpz_cmp_ui(array_of_arrays[i][j], 0) == 0) {
+        //         printf("0 found at index: %d of i: %d\n", j, i);
+        //         exit(1);
+        //     }
+        // }
+
+
+        // THIS LOOP NEEDS MULTI PROCESSING 2
+        // for (int j = 0, k = 0; j < row_size[i]; j += 2, k += 1) {
+        //     if (j + 2 <= row_size[i]) {
+        //         mpz_mul(sq1, array_of_arrays[i][j], array_of_arrays[i][j]);
+        //         mpz_mul(sq2, array_of_arrays[i][j + 1], array_of_arrays[i][j + 1]);
+
+        //         mpz_mod(array_of_arrays[i][j], array_of_arrays[i + 1][k], sq1);
+        //         mpz_mod(array_of_arrays[i][j + 1], array_of_arrays[i + 1][k], sq2);
+        //     } else {
+        //         mpz_mul(sq1, array_of_arrays[i][j], array_of_arrays[i][j]);
+        //         mpz_mod(array_of_arrays[i][j], array_of_arrays[i + 1][k], sq1);
+        //     }
+        // }
     }
     time( & end2);
     printf("[MAIN] Remainder Tree constructed by time: %f seconds\n", difftime(end2, start));

@@ -170,12 +170,12 @@ int main() {
                 pthread_join(threads[p], NULL);
             }
 
-            for (int j = 0; j < i; j++) {
-                if (mpz_cmp_ui(array_of_arrays[count][j], 0) == 0) {
-                    printf("0 found at index: %d of count; %d\n", j, count);
-                    exit(1);
-                }
-            }
+            // for (int j = 0; j < i; j++) {
+            //     if (mpz_cmp_ui(array_of_arrays[count][j], 0) == 0) {
+            //         printf("0 found at index: %d of count; %d\n", j, count);
+            //         exit(1);
+            //     }
+            // }
         }
         prev = i;
         row_size[count] = i;
