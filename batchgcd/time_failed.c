@@ -6,11 +6,25 @@
 
 #include <math.h>
 
-#include <time.h>
+// #include <time.h>
 
 #include <pthread.h>
 
+#include <stdint.h>
+
 #define thread_num 15
+#define CPU_FREQUENCY_HZ 4600000000.0
+
+static inline uint64_t rdtscp() {
+    uint32_t aux;
+    uint32_t lo, hi;
+    __asm__ volatile("rdtscp"
+                     : "=a"(lo), "=d"(hi), "=c"(aux)
+                     :
+                     : "memory");
+    return ((uint64_t)hi << 32) | lo;
+}
+
 
 mpz_t * readFile(char * fileName, int * size) {
     //printf("[READFILE] inputfileName is: %s\n", fileName);
@@ -117,7 +131,7 @@ void * weak_key(void * args){
 // MAIN --------------------------------------------------------------------------------------------------------------------------------------------------------
 
 int main() {
-    time_t start, end1, end2, end3;
+    uint64_t start, end1, end2, end3;
     //printf("[main] io works\n");
     int line_size;
     mpz_t * fileData = readFile("../input/input-1200k.txt", & line_size);
@@ -125,7 +139,8 @@ int main() {
     if (!fileData) {
         return 1;
     }
-    time( & start);
+
+    start = rdtscp();
 
     int row = 0;
     for (double i = line_size; i >= 1.0; i = ceil(i / 2.0)) {
@@ -208,8 +223,8 @@ int main() {
         prev = i;
         row_size[count] = i;
     }
-    time( & end1);
-    printf("[MAIN] Product Tree constructed by time: %f seconds\n", difftime(end1, start));
+    end1 = rdtscp();
+    printf("[MAIN] Product Tree constructed by time: %f seconds\n", (end1-start)/CPU_FREQUENCY_HZ);
 
     // mpz_out_str(stdout, 16, array_of_arrays[row-1][0]);
 
@@ -259,8 +274,8 @@ int main() {
             pthread_join(threads[p], NULL);
         }
     }
-    time( & end2);
-    printf("[MAIN] Remainder Tree constructed by time: %f seconds\n", difftime(end2, start));
+    end2 = rdtscp();
+    printf("[MAIN] Remainder Tree constructed by time: %f seconds\n", (end2-start)/CPU_FREQUENCY_HZ);
 
     int weak_key_count = 0;
 
@@ -308,8 +323,8 @@ int main() {
         weak_key_count += threadData[p].weak_key_count ;
     }
 
-    time( & end3);
-    printf("[MAIN] %d Weak keys identified by time: %f seconds\n", weak_key_count, difftime(end3, start));
+    end3 = rdtscp();
+    printf("[MAIN] %d Weak keys identified by time: %f seconds\n", weak_key_count, (end3-start)/CPU_FREQUENCY_HZ);
 
     // Cleanup -- to think about it after wards
 
