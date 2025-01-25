@@ -79,6 +79,7 @@ void * mod(void * arg) {
         mpz_mul(sq1, data -> current_row[i], data -> current_row[i]);
         mpz_mod(data -> current_row[i], data -> prev_row[i/2], sq1);
     }
+    mpz_clear(sq1);
     // printf("starting index is: %d - ending index is: %d - diff is: %d\n", data -> start_idx, data -> end_idx, data -> end_idx - data -> start_idx);
     return NULL;
 }
@@ -117,15 +118,15 @@ void * weak_key(void * args){
 // MAIN --------------------------------------------------------------------------------------------------------------------------------------------------------
 
 int main() {
-    time_t start, end1, end2, end3;
+    struct timespec start, end1, end2, end3;
     //printf("[main] io works\n");
     int line_size;
-    mpz_t * fileData = readFile("../input/input-1200k.txt", & line_size);
+    mpz_t * fileData = readFile("./input-100k.txt", & line_size);
 
     if (!fileData) {
         return 1;
     }
-    time( & start);
+    clock_gettime(CLOCK_REALTIME, &start);
 
     int row = 0;
     for (double i = line_size; i >= 1.0; i = ceil(i / 2.0)) {
@@ -141,7 +142,7 @@ int main() {
 
     for (int i = line_size, count = 0, prev = 0; i >= 1; i = ceil(i / 2.0), count += 1) {
         array_of_arrays[count] = (mpz_t * ) malloc(i * sizeof(mpz_t));
-        printf("count is : %d i allocated is: %d prev is: %d\n", count, i, prev);
+        // printf("count is : %d i allocated is: %d prev is: %d\n", count, i, prev);
 
         for (int j = 0; j < i; j++) {
             mpz_init(array_of_arrays[count][j]);
@@ -208,8 +209,8 @@ int main() {
         prev = i;
         row_size[count] = i;
     }
-    time( & end1);
-    printf("[MAIN] Product Tree constructed by time: %f seconds\n", difftime(end1, start));
+    clock_gettime(CLOCK_REALTIME, &end1);
+    printf("[MAIN] Product Tree constructed by time: %f seconds\n", (end1.tv_sec - start.tv_sec) + (end1.tv_nsec - start.tv_nsec) / 1.0e9);
 
     // mpz_out_str(stdout, 16, array_of_arrays[row-1][0]);
 
@@ -217,13 +218,8 @@ int main() {
     //   printf("row is: %d its value is: %lld\n", i, row_size[i]);
     // }
 
-    mpz_t sq1, sq2;
-    mpz_inits(sq1, sq2, NULL);
-    // printf("init1 done\n");
-
     for (int i = row - 2; i >= 0; i--) {
-        printf("row size for %d is : %lld\n", i, row_size[i]);
-
+        // printf("row size for %d is : %lld\n", i, row_size[i]);
 
         pthread_t threads[thread_num];
         ThreadData threadData[thread_num];
@@ -259,8 +255,8 @@ int main() {
             pthread_join(threads[p], NULL);
         }
     }
-    time( & end2);
-    printf("[MAIN] Remainder Tree constructed by time: %f seconds\n", difftime(end2, start));
+    clock_gettime(CLOCK_REALTIME, &end2);
+    printf("[MAIN] Remainder Tree constructed by time: %f seconds in time %f seconds\n", (end2.tv_sec - start.tv_sec) + (end2.tv_nsec - start.tv_nsec) / 1.0e9, (end2.tv_sec - end1.tv_sec) + (end2.tv_nsec - end1.tv_nsec) / 1.0e9);
 
     int weak_key_count = 0;
 
@@ -308,8 +304,8 @@ int main() {
         weak_key_count += threadData[p].weak_key_count ;
     }
 
-    time( & end3);
-    printf("[MAIN] %d Weak keys identified by time: %f seconds\n", weak_key_count, difftime(end3, start));
+    clock_gettime(CLOCK_REALTIME, &end3);
+    printf("[MAIN] %d Weak keys identified by time: %f seconds in time %f seconds\n", weak_key_count, (end3.tv_sec - start.tv_sec) + (end3.tv_nsec - start.tv_nsec) / 1.0e9, (end3.tv_sec - end2.tv_sec) + (end3.tv_nsec - end2.tv_nsec) / 1.0e9);
 
     // Cleanup -- to think about it after wards
 
@@ -330,9 +326,6 @@ int main() {
         free(array_of_arrays[i]);
     }
     free(array_of_arrays);
-
-    // Clear the variables at the end
-    mpz_clears(sq1, sq2, NULL);
 
     return 0;
 }
