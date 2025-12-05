@@ -10,7 +10,7 @@
 
 #include <pthread.h>
 
-#define thread_num 15
+#define thread_num 40
 
 mpz_t * readFile(char * fileName, int * size) {
     //printf("[READFILE] inputfileName is: %s\n", fileName);
@@ -78,6 +78,7 @@ void * mod(void * arg) {
     for(int i = data -> start_idx; i < data -> end_idx; i++){
         mpz_mul(sq1, data -> current_row[i], data -> current_row[i]);
         mpz_mod(data -> current_row[i], data -> prev_row[i/2], sq1);
+        // mpz_mod(data -> current_row[i], data -> prev_row[i/2], data -> current_row[i]);
     }
     mpz_clear(sq1);
     // printf("starting index is: %d - ending index is: %d - diff is: %d\n", data -> start_idx, data -> end_idx, data -> end_idx - data -> start_idx);
@@ -119,9 +120,9 @@ void * weak_key(void * args){
 
 int main() {
     struct timespec start, end1, end2, end3;
-    //printf("[main] io works\n");
+    printf("[main] io works\n");
     int line_size;
-    mpz_t * fileData = readFile("./input-100k.txt", & line_size);
+    mpz_t * fileData = readFile("../input/input-4100k.txt", & line_size);
 
     if (!fileData) {
         return 1;
@@ -134,7 +135,7 @@ int main() {
         if (i == 1.0)
             break;
     }
-    //printf("[MAIN] rows required is: %d\n", row);
+    printf("[MAIN] rows required is: %d\n", row);
 
     long long row_size[row];
 
@@ -142,7 +143,7 @@ int main() {
 
     for (int i = line_size, count = 0, prev = 0; i >= 1; i = ceil(i / 2.0), count += 1) {
         array_of_arrays[count] = (mpz_t * ) malloc(i * sizeof(mpz_t));
-        // printf("count is : %d i allocated is: %d prev is: %d\n", count, i, prev);
+        printf("count is : %d i allocated is: %d prev is: %d\n", count, i, prev);
 
         for (int j = 0; j < i; j++) {
             mpz_init(array_of_arrays[count][j]);
@@ -198,6 +199,8 @@ int main() {
             for (int p = 0; p < th; p++) {
                 pthread_join(threads[p], NULL);
             }
+            clock_gettime(CLOCK_REALTIME, &end1);
+            printf("[MAIN] Product Tree level %d constructed by time: %f seconds\n", count, (end1.tv_sec - start.tv_sec) + (end1.tv_nsec - start.tv_nsec) / 1.0e9);
 
             // for (int j = 0; j < i; j++) {
             //     if (mpz_cmp_ui(array_of_arrays[count][j], 0) == 0) {
@@ -219,7 +222,7 @@ int main() {
     // }
 
     for (int i = row - 2; i >= 0; i--) {
-        // printf("row size for %d is : %lld\n", i, row_size[i]);
+        printf("row size for %d is : %lld\n", i, row_size[i]);
 
         pthread_t threads[thread_num];
         ThreadData threadData[thread_num];
